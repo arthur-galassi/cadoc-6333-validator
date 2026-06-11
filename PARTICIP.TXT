@@ -1,0 +1,106 @@
+internal static byte[] BuildParticipTxt()
+{
+    var sb = new StringBuilder();
+
+    // ============================================================
+    // VARIÁVEIS DO HEADER - PARTICIP.TXT
+    // ============================================================
+
+    var nomeArquivo = "PARTICIP";                  // Posição 001-008 | X(008)
+    var dataGeracao = DateTime.Today;              // Posição 009-016 | 9(008) | AAAAMMDD
+
+    // Ajustar para o CNPJ/ISPB real do IAP.
+    // O campo deve conter os 8 primeiros caracteres alfanuméricos do CNPJ do IAP.
+    var cnpjIap = "12345678000199";
+    var iap = new string(cnpjIap.Where(char.IsLetterOrDigit).ToArray())[..8]; // 017-024 | 9(008)
+
+    // Para arranjo fechado, normalmente haverá uma linha por atividade desempenhada.
+    // Exemplo abaixo: 2 registros, um como Emissor e outro como Credenciador.
+    var quantidadeRegistros = 2;                   // Posição 025-032 | 9(008)
+
+    // ============================================================
+    // MONTA HEADER - 32 POSIÇÕES
+    // ============================================================
+
+    var header = new StringBuilder();
+
+    header.Append(Texto(nomeArquivo, 8));                      // 001-008
+    header.Append(dataGeracao.ToString("yyyyMMdd"));           // 009-016
+    header.Append(Texto(iap, 8));                              // 017-024
+    header.Append(Numero(quantidadeRegistros, 8));             // 025-032
+
+    ValidarTamanho(header, 32, "HEADER PARTICIP.TXT");
+
+    sb.AppendLine(header.ToString());
+
+    // ============================================================
+    // VARIÁVEIS DO REGISTRO FILLER - PARTICIP.TXT
+    // ============================================================
+
+    var periodStart = DateTime.Today;
+
+    var ano = periodStart.Year;                                // 001-004 | 9(004)
+    var trimestre = ((periodStart.Month - 1) / 3) + 1;          // 005-005 | 9(001)
+
+    var proposito = 1;                                         // 006-006 | 9(001) | 1 Compra, 2 Transferência
+    var modalidadeRelacionamento = 2;                          // 007-007 | 9(001) | 1 Pré-paga, 2 Pós-paga, 3 Depósito, 4 Eventual
+    var abrangenciaTerritorial = 1;                            // 008-008 | 9(001) | 1 Doméstico, 2 Transfronteiriço
+
+    var participante = iap;                                    // 010-017 | 9(008) | Próprio CNPJ/ISPB no arranjo fechado
+
+    var valorTotalTarifasCobradasPeloIap = 0m;                 // 018-032 | 9(015) | 2 casas decimais
+    var quantidadeTransacoes = 0L;                             // 033-044 | 9(012)
+    var valorTransacoes = 0m;                                  // 045-059 | 9(015) | 2 casas decimais
+    var moeda = "BRL";                                         // 060-062 | X(003)
+
+    // ============================================================
+    // REGISTRO 1 - IAP COMO EMISSOR
+    // Tipo relacionamento:
+    // 1 = Emissor
+    // ============================================================
+
+    var registroEmissor = new StringBuilder();
+
+    registroEmissor.Append(Numero(ano, 4));                                        // 001-004
+    registroEmissor.Append(Numero(trimestre, 1));                                  // 005-005
+    registroEmissor.Append(Numero(proposito, 1));                                  // 006-006
+    registroEmissor.Append(Numero(modalidadeRelacionamento, 1));                   // 007-007
+    registroEmissor.Append(Numero(abrangenciaTerritorial, 1));                     // 008-008
+    registroEmissor.Append(Numero(1, 1));                                          // 009-009 | Tipo relacionamento: Emissor
+    registroEmissor.Append(Texto(participante, 8));                                // 010-017
+    registroEmissor.Append(DecimalSemSeparador(valorTotalTarifasCobradasPeloIap, 15, 2)); // 018-032
+    registroEmissor.Append(Numero(quantidadeTransacoes, 12));                      // 033-044
+    registroEmissor.Append(DecimalSemSeparador(valorTransacoes, 15, 2));           // 045-059
+    registroEmissor.Append(Texto(moeda, 3));                                       // 060-062
+
+    ValidarTamanho(registroEmissor, 62, "FILLER PARTICIP.TXT - EMISSOR");
+
+    sb.AppendLine(registroEmissor.ToString());
+
+    // ============================================================
+    // REGISTRO 2 - IAP COMO CREDENCIADOR
+    // Tipo relacionamento:
+    // 2 = Credenciador
+    // ============================================================
+
+    var registroCredenciador = new StringBuilder();
+
+    registroCredenciador.Append(Numero(ano, 4));                                   // 001-004
+    registroCredenciador.Append(Numero(trimestre, 1));                             // 005-005
+    registroCredenciador.Append(Numero(proposito, 1));                             // 006-006
+    registroCredenciador.Append(Numero(modalidadeRelacionamento, 1));              // 007-007
+    registroCredenciador.Append(Numero(abrangenciaTerritorial, 1));                // 008-008
+    registroCredenciador.Append(Numero(2, 1));                                     // 009-009 | Tipo relacionamento: Credenciador
+    registroCredenciador.Append(Texto(participante, 8));                           // 010-017
+    registroCredenciador.Append(DecimalSemSeparador(valorTotalTarifasCobradasPeloIap, 15, 2)); // 018-032
+    registroCredenciador.Append(Numero(quantidadeTransacoes, 12));                 // 033-044
+    registroCredenciador.Append(DecimalSemSeparador(valorTransacoes, 15, 2));      // 045-059
+    registroCredenciador.Append(Texto(moeda, 3));                                  // 060-062
+
+    ValidarTamanho(registroCredenciador, 62, "FILLER PARTICIP.TXT - CREDENCIADOR");
+
+    sb.AppendLine(registroCredenciador.ToString());
+
+    // O documento exige TXT posicional padrão ISO-8859-1.
+    return Encoding.GetEncoding("ISO-8859-1").GetBytes(sb.ToString());
+}
